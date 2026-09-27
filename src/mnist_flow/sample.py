@@ -24,7 +24,7 @@ def main() -> None:
     args = parser.parse_args()
     device = select_device(args.device)
     seed_everything(args.seed)
-    checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
     model = VelocityUNet(**checkpoint["config"]).to(device)
     model.load_state_dict(checkpoint.get("ema", checkpoint["model"]))
     images = sample(model, args.num_samples, args.steps, device, method=args.method)

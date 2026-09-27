@@ -16,6 +16,7 @@ test = ["pytest>=8,<10"]
 [project.scripts]
 mnist-flow-train = "mnist_flow.train:main"
 mnist-flow-sample = "mnist_flow.sample:main"
+mnist-flow-evaluate = "mnist_flow.evaluate:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

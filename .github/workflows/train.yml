@@ -1,0 +1,74 @@
+name: Train and sample MNIST
+
+on:
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: Total training epochs
+        required: true
+        type: number
+        default: 1
+      channels:
+        description: U-Net channels (multiple of 8)
+        required: true
+        type: number
+        default: 8
+      max_train_samples:
+        description: Training images (0 = all 54000)
+        required: true
+        type: number
+        default: 1024
+      max_val_samples:
+        description: Validation images (0 = all 6000)
+        required: true
+        type: number
+        default: 256
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install CPU PyTorch
+        run: python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Install project
+        run: python -m pip install -e .
+      - name: Train on MNIST
+        env:
+          EPOCHS: ${{ inputs.epochs }}
+          CHANNELS: ${{ inputs.channels }}
+          TRAIN_SAMPLES: ${{ inputs.max_train_samples }}
+          VAL_SAMPLES: ${{ inputs.max_val_samples }}
+        run: |
+          python -m mnist_flow.train \
+            --epochs "$EPOCHS" --channels "$CHANNELS" --time-dim 32 \
+            --max-train-samples "$TRAIN_SAMPLES" --max-val-samples "$VAL_SAMPLES" \
+            --preview-steps 10 --preview-count 16 --batch-size 128 \
+            --device cpu --output-dir outputs/action
+      - name: Generate image grid
+        run: |
+          python -m mnist_flow.sample \
+            --checkpoint outputs/action/best.pt \
+            --output outputs/action/samples.png \
+            --num-samples 16 --steps 20 --device cpu
+      - name: Evaluate on held-out test images
+        run: |
+          python -m mnist_flow.evaluate \
+            --checkpoint outputs/action/best.pt \
+            --output outputs/action/test_metrics.json \
+            --max-test-samples 256 --device cpu
+      - name: Upload model and results
+        uses: actions/upload-artifact@v4
+        with:
+          name: mnist-flow-model-and-results
+          path: outputs/action/
+          if-no-files-found: error
+          retention-days: 7
